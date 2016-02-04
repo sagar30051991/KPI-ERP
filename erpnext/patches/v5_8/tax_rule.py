@@ -11,21 +11,19 @@ def execute():
 		ifnull(default_taxes_and_charges, '') != '' """, as_dict=1)
 
 	for d in customers:
-		if not frappe.db.sql("select name from `tabTax Rule` where customer=%s", d.name):
-			tr = frappe.new_doc("Tax Rule")
-			tr.tax_type = "Sales"
-			tr.customer = d.name
-			tr.sales_tax_template = d.default_taxes_and_charges
-			tr.save()
+		tr = frappe.new_doc("Tax Rule")
+		tr.tax_type = "Sales"
+		tr.customer = d.name
+		tr.sales_tax_template = d.default_taxes_and_charges
+		tr.save()
 
 
 	suppliers = frappe.db.sql("""select name, default_taxes_and_charges from tabSupplier where
 		ifnull(default_taxes_and_charges, '') != '' """, as_dict=1)
 
 	for d in suppliers:
-		if not frappe.db.sql("select name from `tabTax Rule` where supplier=%s", d.name):
-			tr = frappe.new_doc("Tax Rule")
-			tr.tax_type = "Purchase"
-			tr.supplier = d.name
-			tr.purchase_tax_template = d.default_taxes_and_charges
-			tr.save()
+		tr = frappe.new_doc("Tax Rule")
+		tr.tax_type = "Purchase"
+		tr.supplier = d.name
+		tr.purchase_tax_template = d.default_taxes_and_charges
+		tr.save()

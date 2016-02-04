@@ -4,13 +4,11 @@
 frappe.provide("erpnext.projects");
 
 frappe.ui.form.on("Time Log", "onload", function(frm) {
-	if (frm.doc.__islocal) {
-		if (frm.doc.for_manufacturing) {
-			frappe.ui.form.trigger("Time Log", "production_order");
-		}
-		if (frm.doc.from_time && frm.doc.to_time) {
-			frappe.ui.form.trigger("Time Log", "to_time");
-		}
+	if (frm.doc.for_manufacturing) {
+		frappe.ui.form.trigger("Time Log", "production_order");
+	}
+	if (frm.doc.from_time && frm.doc.to_time) {
+		frappe.ui.form.trigger("Time Log", "to_time");
 	}
 });
 
@@ -46,19 +44,19 @@ frappe.ui.form.on("Time Log", "before_save", function(frm) {
 frappe.ui.form.on("Time Log", "to_time", function(frm) {
 	if(frm._setting_hours) return;
 	frm.set_value("hours", moment(cur_frm.doc.to_time).diff(moment(cur_frm.doc.from_time),
-		"seconds") / 3600);
+		"minutes") / 60);
 
 });
 
 var calculate_cost = function(frm) {
 	frm.set_value("costing_amount", frm.doc.costing_rate * frm.doc.hours);
 	if (frm.doc.billable==1){
-		frm.set_value("billing_amount", (frm.doc.billing_rate * frm.doc.hours) + frm.doc.additional_cost);
+		frm.set_value("billing_amount", frm.doc.billing_rate * frm.doc.hours);
 	}
 }
 
 var get_activity_cost = function(frm) {
-	if (frm.doc.activity_type){
+	if (frm.doc.employee && frm.doc.activity_type){
 		return frappe.call({
 			method: "erpnext.projects.doctype.time_log.time_log.get_activity_cost",
 			args: {
@@ -80,10 +78,6 @@ frappe.ui.form.on("Time Log", "hours", function(frm) {
 	calculate_cost(frm);
 });
 
-frappe.ui.form.on("Time Log", "additional_cost", function(frm) {
-	calculate_cost(frm);
-});
-
 frappe.ui.form.on("Time Log", "activity_type", function(frm) {
 	get_activity_cost(frm);
 });
@@ -98,7 +92,6 @@ frappe.ui.form.on("Time Log", "billable", function(frm) {
 	}
 	else {
 		frm.set_value("billing_amount", 0);
-		frm.set_value("additional_cost", 0);
 	}
 });
 

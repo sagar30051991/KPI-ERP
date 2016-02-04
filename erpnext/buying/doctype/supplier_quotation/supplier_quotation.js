@@ -9,12 +9,11 @@ erpnext.buying.SupplierQuotationController = erpnext.buying.BuyingController.ext
 		this._super();
 
 		if (this.frm.doc.docstatus === 1) {
-			cur_frm.add_custom_button(__("Purchase Order"), this.make_purchase_order,
-				__("Make"));
-			cur_frm.page.set_inner_btn_group_as_primary(__("Make"));
+			cur_frm.add_custom_button(__("Make Purchase Order"), this.make_purchase_order,
+				frappe.boot.doctype_icons["Journal Entry"]);
 		}
 		else if (this.frm.doc.docstatus===0) {
-			cur_frm.add_custom_button(__('Material Request'),
+			cur_frm.add_custom_button(__('From Material Request'),
 				function() {
 					frappe.model.map_current_doc({
 						method: "erpnext.stock.doctype.material_request.material_request.make_supplier_quotation",
@@ -27,7 +26,7 @@ erpnext.buying.SupplierQuotationController = erpnext.buying.BuyingController.ext
 							company: cur_frm.doc.company
 						}
 					})
-				}, __("Get items from"));
+				}, "icon-download", "btn-default");
 		}
 	},
 

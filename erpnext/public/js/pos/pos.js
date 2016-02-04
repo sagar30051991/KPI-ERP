@@ -7,7 +7,7 @@ erpnext.pos.PointOfSale = Class.extend({
 	init: function(wrapper, frm) {
 		this.wrapper = wrapper;
 		this.frm = frm;
-		this.wrapper.html(frappe.render_template("pos", {currency: this.frm.currency}));
+		this.wrapper.html(frappe.render_template("pos", {}));
 
 		this.check_transaction_type();
 		this.make();
@@ -15,11 +15,6 @@ erpnext.pos.PointOfSale = Class.extend({
 		var me = this;
 		$(this.frm.wrapper).on("refresh-fields", function() {
 			me.refresh();
-		});
-
-		this.wrapper.find('input.discount-percentage').on("change", function() {
-			frappe.model.set_value(me.frm.doctype, me.frm.docname,
-				"additional_discount_percentage", flt(this.value));
 		});
 
 		this.wrapper.find('input.discount-amount').on("change", function() {
@@ -57,13 +52,10 @@ erpnext.pos.PointOfSale = Class.extend({
 				"fieldtype": "Link",
 				"options": this.party,
 				"label": this.party,
-				"fieldname": this.party.toLowerCase(),
+				"fieldname": "pos_party",
 				"placeholder": this.party
 			},
 			parent: this.wrapper.find(".party-area"),
-			frm: this.frm,
-			doctype: this.frm.doctype,
-			docname: this.frm.docname,
 			only_input: true,
 		});
 		this.party_field.make_input();
@@ -238,7 +230,6 @@ erpnext.pos.PointOfSale = Class.extend({
 	},
 	refresh_fields: function() {
 		this.party_field.set_input(this.frm.doc[this.party.toLowerCase()]);
-		this.wrapper.find('input.discount-percentage').val(this.frm.doc.additional_discount_percentage);
 		this.wrapper.find('input.discount-amount').val(this.frm.doc.discount_amount);
 
 		this.show_items_in_item_cart();
@@ -415,15 +406,15 @@ erpnext.pos.PointOfSale = Class.extend({
 				// prefer cash payment!
 				var default_mode = me.frm.doc.mode_of_payment ? me.frm.doc.mode_of_payment :
 					me.modes_of_payment.indexOf(__("Cash"))!==-1 ? __("Cash") : undefined;
-					
+
 				// show payment wizard
 				var dialog = new frappe.ui.Dialog({
 					width: 400,
 					title: 'Payment',
 					fields: [
 						{fieldtype:'Currency',
-							fieldname:'total_amount', label: __('Total Amount'),
-							"default": me.frm.doc.grand_total},
+							fieldname:'total_amount', label: __('Total Amount'), read_only:1,
+							"default": me.frm.doc.grand_total, read_only: 1},
 						{fieldtype:'Select', fieldname:'mode_of_payment',
 							label: __('Mode of Payment'),
 							options: me.modes_of_payment.join('\n'), reqd: 1,
@@ -431,19 +422,7 @@ erpnext.pos.PointOfSale = Class.extend({
 						{fieldtype:'Currency', fieldname:'paid_amount', label:__('Amount Paid'),
 							reqd:1, "default": me.frm.doc.grand_total, hidden: 1, change: function() {
 								var values = dialog.get_values();
-								
-								var actual_change = flt(values.paid_amount - values.total_amount, 
-									precision("paid_amount"));
-								
-								if (actual_change > 0) {
-									var rounded_change = 
-										round_based_on_smallest_currency_fraction(actual_change, 
-											me.frm.doc.currency, precision("paid_amount"));
-								} else {
-									var rounded_change = 0;
-								}
-								
-								dialog.set_value("change", rounded_change);
+								dialog.set_value("change", Math.round(values.paid_amount - values.total_amount));
 								dialog.get_input("change").trigger("change");
 
 							}},
@@ -496,7 +475,7 @@ erpnext.pos.PointOfSale = Class.extend({
 
 			var paid_amount = flt((flt(values.paid_amount) - flt(values.change)), precision("paid_amount"));
 			me.frm.set_value("paid_amount", paid_amount);
-
+			
 			// specifying writeoff amount here itself, so as to avoid recursion issue
 			me.frm.set_value("write_off_amount", me.frm.doc.grand_total - paid_amount);
 			me.frm.set_value("outstanding_amount", 0);

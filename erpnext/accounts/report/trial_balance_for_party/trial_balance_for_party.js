@@ -8,7 +8,7 @@ frappe.query_reports["Trial Balance for Party"] = {
 			"label": __("Company"),
 			"fieldtype": "Link",
 			"options": "Company",
-			"default": frappe.defaults.get_user_default("Company"),
+			"default": frappe.defaults.get_user_default("company"),
 			"reqd": 1
 		},
 		{

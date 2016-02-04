@@ -7,40 +7,44 @@ cur_frm.cscript.refresh = function(doc, dt, dn) {
 	var err_msg = __("There was an error. One probable reason could be that you haven't saved the form. Please contact support@erpnext.com if the problem persists.")
 
 	cur_frm.add_custom_button(__('View Now'), function() {
-		frappe.call({
-			method: 'erpnext.setup.doctype.email_digest.email_digest.get_digest_msg',
-			args: {
-				name: doc.name
-			},
-			callback: function(r) {
-				var d = new frappe.ui.Dialog({
-					title: __('Email Digest: ') + dn,
-					width: 800
-				});
-				$(d.body).html(r.message);
-				d.show();
-			}
-		});
-	}, "icon-eye-open", "btn-default");
+		doc = locals[dt][dn];
+		if(doc.__unsaved != 1) {
+			return $c_obj(doc, 'get_digest_msg', '', function(r, rt) {
+				if(r.exc) {
+					msgprint(err_msg);
+					console.log(r.exc);
+				} else {
+					//console.log(arguments);
+					var d = new frappe.ui.Dialog({
+						title: __('Email Digest: ') + dn,
+						width: 800
+					});
 
-	if(user==="Administrator") {
-		cur_frm.add_custom_button(__('Send Now'), function() {
-			doc = locals[dt][dn];
-			if(doc.__unsaved != 1) {
-				return $c_obj(doc, 'send', '', function(r, rt) {
-					if(r.exc) {
-						msgprint(err_msg);
-						console.log(r.exc);
-					} else {
-						//console.log(arguments);
-						msgprint(__('Message Sent'));
-					}
-				});
-			} else {
-				msgprint(save_msg);
-			}
-		}, "icon-envelope", "btn-default");
-	}
+					$a(d.body, 'div', '', '', r['message']);
+
+					d.show();
+				}
+			});
+		} else {
+			msgprint(save_msg);
+		}
+	}, "icon-eye-open", "btn-default");
+	cur_frm.add_custom_button(__('Send Now'), function() {
+		doc = locals[dt][dn];
+		if(doc.__unsaved != 1) {
+			return $c_obj(doc, 'send', '', function(r, rt) {
+				if(r.exc) {
+					msgprint(err_msg);
+					console.log(r.exc);
+				} else {
+					//console.log(arguments);
+					msgprint(__('Message Sent'));
+				}
+			});
+		} else {
+			msgprint(save_msg);
+		}
+	}, "icon-envelope", "btn-default");
 }
 
 cur_frm.cscript.addremove_recipients = function(doc, dt, dn) {
@@ -55,24 +59,34 @@ cur_frm.cscript.addremove_recipients = function(doc, dt, dn) {
 				title: __('Add/Remove Recipients'),
 				width: 400
 			});
-
+			var dialog_div = $a(d.body, 'div', 'dialog-div', '', '');
+			var tab = make_table(dialog_div, r.user_list.length+2, 2, '', ['15%', '85%']);
+			tab.className = 'user-list';
+			var add_or_update = 'Add';
 			$.each(r.user_list, function(i, v) {
-				var fullname = frappe.user.full_name(v.name);
-				if(fullname !== v.name) fullname = fullname + " &lt;" + v.name + "&gt;";
-
-				if(v.enabled==0) {
-					fullname = repl("<span style='color: red'> %(name)s (" + __("disabled user") + ")</span>", {name: v.name});
+				var check = $a_input($td(tab, i+1, 0), 'checkbox');
+				check.value = v.name;
+				if(v.checked==1) {
+					check.checked = 1;
+					add_or_update = 'Update';
 				}
-
-				$('<div class="checkbox"><label>\
-					<input type="checkbox" data-id="' + v.name + '"'+
-						(v.checked ? 'checked' : '') +
-				'> '+ fullname +'</label></div>').appendTo(d.body);
+				var fullname = frappe.user.full_name(v.name);
+				if(fullname !== v.name) v.name = fullname + " &lt;" + v.name + "&gt;";
+				if(v.enabled==0) {
+					v.name = repl("<span style='color: red'> %(name)s (" + __("disabled user") + ")</span>", {name: v.name});
+				}
+				var user = $a($td(tab, i+1, 1), 'span', '', '', v.name);
+				//user.onclick = function() { check.checked = !check.checked; }
 			});
 
 			// Display add recipients button
-			d.set_primary_action("Update", function() {
-				cur_frm.cscript.add_to_rec_list(doc, d.body, r.user_list.length);
+			if(r.user_list.length>15) {
+				$btn($td(tab, 0, 1), __('{0} Recipients',[__(add_or_update)]), function() {
+					cur_frm.cscript.add_to_rec_list(doc, tab, r.user_list.length);
+				});
+			}
+			$btn($td(tab, r.user_list.length+1, 1),__('{0} Recipients',[__(add_or_update)]), function() {
+				cur_frm.cscript.add_to_rec_list(doc, tab, r.user_list.length);
 			});
 
 			cur_frm.rec_dialog = d;
@@ -81,13 +95,15 @@ cur_frm.cscript.addremove_recipients = function(doc, dt, dn) {
 	});
 }
 
-cur_frm.cscript.add_to_rec_list = function(doc, dialog, length) {
+cur_frm.cscript.add_to_rec_list = function(doc, tab, length) {
 	// add checked users to list of recipients
 	var rec_list = [];
-	$(dialog).find('input:checked').each(function(i, input) {
-		rec_list.push($(input).attr('data-id'));
-	});
-
+	for(var i = 1; i <= length; i++) {
+		var input = $($td(tab, i, 0)).find('input');
+		if(input.is(':checked')) {
+			rec_list.push(input.attr('value'));
+		}
+	}
 	doc.recipient_list = rec_list.join('\n');
 	cur_frm.rec_dialog.hide();
 	cur_frm.save();

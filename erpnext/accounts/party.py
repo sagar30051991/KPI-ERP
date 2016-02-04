@@ -10,7 +10,7 @@ from frappe.defaults import get_user_permissions
 from frappe.utils import add_days, getdate, formatdate, get_first_day, date_diff
 from erpnext.utilities.doctype.address.address import get_address_display
 from erpnext.utilities.doctype.contact.contact import get_contact_details
-from erpnext.exceptions import PartyFrozen, InvalidCurrency, PartyDisabled, InvalidAccountCurrency
+from erpnext.exceptions import InvalidAccountCurrency
 
 class DuplicatePartyAccountError(frappe.ValidationError): pass
 
@@ -35,7 +35,7 @@ def _get_party_details(party=None, account=None, party_type="Customer", company=
 	party = out[party_type.lower()]
 
 	if not ignore_permissions and not frappe.has_permission(party_type, "read", party):
-		frappe.throw(_("Not permitted for {0}").format(party), frappe.PermissionError)
+		frappe.throw(_("Not permitted"), frappe.PermissionError)
 
 	party = frappe.get_doc(party_type, party)
 
@@ -51,8 +51,7 @@ def _get_party_details(party=None, account=None, party_type="Customer", company=
 	# sales team
 	if party_type=="Customer":
 		out["sales_team"] = [{
-			"sales_person": d.sales_person,
-			"allocated_percentage": d.allocated_percentage or None
+			"sales_person": d.sales_person
 		} for d in party.get("sales_team")]
 
 	return out
@@ -201,14 +200,11 @@ def get_party_gle_currency(party_type, party, company):
 
 		return existing_gle_currency[0][0] if existing_gle_currency else None
 
-	return frappe.local_cache("party_gle_currency", (party_type, party, company), generator,
-		regenerate_if_none=True)
+	return frappe.local_cache("party_gle_currency", (party_type, party, company), generator)
 
-def validate_party_gle_currency(party_type, party, company, party_account_currency=None):
+def validate_party_gle_currency(party_type, party, company):
 	"""Validate party account currency with existing GL Entry's currency"""
-	if not party_account_currency:
-		party_account_currency = get_party_account_currency(party_type, party, company)
-
+	party_account_currency = get_party_account_currency(party_type, party, company)
 	existing_gle_currency = get_party_gle_currency(party_type, party, company)
 
 	if existing_gle_currency and party_account_currency != existing_gle_currency:
@@ -220,16 +216,10 @@ def validate_party_accounts(doc):
 
 	for account in doc.get("accounts"):
 		if account.company in companies:
-			frappe.throw(_("There can only be 1 Account per Company in {0} {1}")
-				.format(doc.doctype, doc.name), DuplicatePartyAccountError)
+			frappe.throw(_("There can only be 1 Account per Company in {0} {1}").format(doc.doctype, doc.name),
+				DuplicatePartyAccountError)
 		else:
 			companies.append(account.company)
-
-		party_account_currency = frappe.db.get_value("Account", account.account, "account_currency")
-		existing_gle_currency = get_party_gle_currency(doc.doctype, doc.name, account.company)
-
-		if existing_gle_currency and party_account_currency != existing_gle_currency:
-			frappe.throw(_("Accounting entries have already been made in currency {0} for company {1}. Please select a receivable or payable account with currency {0}.").format(existing_gle_currency, account.company))
 
 @frappe.whitelist()
 def get_due_date(posting_date, party_type, party, company):
@@ -237,11 +227,16 @@ def get_due_date(posting_date, party_type, party, company):
 	due_date = None
 	if posting_date and party:
 		due_date = posting_date
-		credit_days_based_on, credit_days = get_credit_days(party_type, party, company)
-		if credit_days_based_on == "Fixed Days" and credit_days:
-			due_date = add_days(posting_date, credit_days)
-		elif credit_days_based_on == "Last Day of the Next Month":
-			due_date = (get_first_day(posting_date, 0, 2) + datetime.timedelta(-1)).strftime("%Y-%m-%d")
+		if party_type=="Customer":
+			credit_days_based_on, credit_days = get_credit_days(party_type, party, company)
+			if credit_days_based_on == "Fixed Days" and credit_days:
+				due_date = add_days(posting_date, credit_days)
+			elif credit_days_based_on == "Last Day of the Next Month":
+				due_date = (get_first_day(posting_date, 0, 2) + datetime.timedelta(-1)).strftime("%Y-%m-%d")
+		else:
+			credit_days = get_credit_days(party_type, party, company)
+			if credit_days:
+				due_date = add_days(posting_date, credit_days)
 
 	return due_date
 
@@ -250,21 +245,20 @@ def get_credit_days(party_type, party, company):
 		if party_type == "Customer":
 			credit_days_based_on, credit_days, customer_group = \
 				frappe.db.get_value(party_type, party, ["credit_days_based_on", "credit_days", "customer_group"])
-		else:
-			credit_days_based_on, credit_days, supplier_type = \
-				frappe.db.get_value(party_type, party, ["credit_days_based_on", "credit_days", "supplier_type"])
 
-	if not credit_days_based_on:
-		if party_type == "Customer":
-			credit_days_based_on, credit_days = \
-				frappe.db.get_value("Customer Group", customer_group, ["credit_days_based_on", "credit_days"]) \
-				or frappe.db.get_value("Company", company, ["credit_days_based_on", "credit_days"])
-		else:
-			credit_days_based_on, credit_days = \
-				frappe.db.get_value("Supplier Type", supplier_type, ["credit_days_based_on", "credit_days"])\
-				or frappe.db.get_value("Company", company, ["credit_days_based_on", "credit_days"] )
+			if not credit_days_based_on:
+				credit_days_based_on, credit_days = \
+					frappe.db.get_value("Customer Group", customer_group, ["credit_days_based_on", "credit_days"]) \
+					or frappe.db.get_value("Company", company, ["credit_days_based_on", "credit_days"])
 
-	return credit_days_based_on, credit_days
+			return credit_days_based_on, credit_days
+		else:
+			credit_days, supplier_type = frappe.db.get_value(party_type, party, ["credit_days", "supplier_type"])
+			if not credit_days:
+				credit_days = frappe.db.get_value("Supplier Type", supplier_type, "credit_days") \
+					or frappe.db.get_value("Company", company, "credit_days")
+
+			return credit_days
 
 def validate_due_date(posting_date, due_date, party_type, party, company):
 	if getdate(due_date) < getdate(posting_date):
@@ -308,13 +302,3 @@ def set_taxes(party, party_type, posting_date, company, customer_group=None, sup
 		args.update({"use_for_shopping_cart": use_for_shopping_cart})
 
 	return get_tax_template(posting_date, args)
-
-def validate_party_frozen_disabled(party_type, party_name):
-	if party_type and party_name:
-		party = frappe.db.get_value(party_type, party_name, ["is_frozen", "disabled"], as_dict=True)
-		if party.disabled:
-			frappe.throw("{0} {1} is disabled".format(party_type, party_name), PartyDisabled)
-		elif party.is_frozen:
-			frozen_accounts_modifier = frappe.db.get_value( 'Accounts Settings', None,'frozen_accounts_modifier')
-			if not frozen_accounts_modifier in frappe.get_roles():
-				frappe.throw("{0} {1} is frozen".format(party_type, party_name), PartyFrozen)

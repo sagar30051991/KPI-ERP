@@ -39,12 +39,12 @@ def load_country_and_currency(bootinfo):
 		bootinfo.docs += [frappe.get_doc("Country", country)]
 
 	bootinfo.docs += frappe.db.sql("""select * from tabCurrency
-		where enabled=1""", as_dict=1, update={"doctype":":Currency"})
+		where ifnull(enabled,0)=1""", as_dict=1, update={"doctype":":Currency"})
 
 def get_letter_heads():
 	import frappe
 	ret = frappe.db.sql("""select name, content from `tabLetter Head`
-		where disabled=0""")
+		where ifnull(disabled,0)=0""")
 	return dict(ret)
 
 def update_page_info(bootinfo):

@@ -9,9 +9,7 @@ def execute():
 	if outgoing and outgoing['mail_server'] and outgoing['mail_login']:
 		account = frappe.new_doc("Email Account")
 		mapping = {
-			"login_id_is_different": 1,
-			"email_id": "auto_email_id",
-			"login_id": "mail_login",
+			"email_id": "mail_login",
 			"password": "mail_password",
 			"footer": "footer",
 			"smtp_server": "mail_server",
@@ -35,7 +33,7 @@ def execute():
 			"enable_incoming": "sync_support_mails",
 			"email_id": "mail_login",
 			"password": "mail_password",
-			"email_server": "mail_server",
+			"pop3_server": "mail_server",
 			"use_ssl": "use_ssl",
 			"signature": "support_signature",
 			"enable_auto_reply": "send_autoreply",
@@ -59,7 +57,7 @@ def execute():
 				"enable_incoming": "extract_emails",
 				"email_id": "username",
 				"password": "password",
-				"email_server": "host",
+				"pop3_server": "host",
 				"use_ssl": "use_ssl",
 			}
 

@@ -1,7 +1,6 @@
 {
     "country_code": "ro",
     "name": "Romania - Chart of Accounts",
-	"disabled": "Yes",
     "tree": {
         "CONTURI FINANCIARE": {
             "CONTURI DE BILANT": {

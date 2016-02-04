@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 from frappe import _
-from frappe.utils import flt, get_datetime, get_time, getdate
+from frappe.utils import cstr, flt, get_datetime, get_time, getdate
 from dateutil.relativedelta import relativedelta
 from erpnext.manufacturing.doctype.manufacturing_settings.manufacturing_settings import get_mins_between_operations
 
@@ -93,12 +93,14 @@ class TimeLog(Document):
 				(%(from_time)s > from_time and %(from_time)s < to_time) or
 				(%(from_time)s = from_time and %(to_time)s = to_time))
 			and name!=%(name)s
+			and ifnull(task, "")=%(task)s
 			and docstatus < 2""".format(fieldname),
 			{
 				"val": self.get(fieldname),
 				"from_time": self.from_time,
 				"to_time": self.to_time,
-				"name": self.name or "No Name"
+				"name": self.name or "No Name",
+				"task": cstr(self.task)
 			}, as_dict=True)
 
 		return existing[0] if existing else None
@@ -201,7 +203,7 @@ class TimeLog(Document):
 	def get_time_log_summary(self):
 		"""Returns 'Actual Operating Time'. """
 		return frappe.db.sql("""select
-			sum(hours*60) as mins, sum(completed_qty) as completed_qty
+			sum(hours*60) as mins, sum(ifnull(completed_qty, 0)) as completed_qty
 			from `tabTime Log`
 			where production_order = %s and operation_id = %s and docstatus=1""",
 			(self.production_order, self.operation_id), as_dict=1)[0]
@@ -234,9 +236,6 @@ class TimeLog(Document):
 				self.billing_amount = self.billing_rate * self.hours
 			else:
 				self.billing_amount = 0
-		
-		if self.additional_cost and self.billable:
-			self.billing_amount += self.additional_cost
 
 	def update_task_and_project(self):
 		"""Update costing rate in Task or Project if either is set"""

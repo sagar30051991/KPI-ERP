@@ -1,6 +1,7 @@
 {
     "country_code": "ca",
     "name": "Plan comptable pour les provinces francophones",
+	"is_active": "Yes",
     "tree": {
         "ACTIF": {
             "ACTIFS COURANTS": {

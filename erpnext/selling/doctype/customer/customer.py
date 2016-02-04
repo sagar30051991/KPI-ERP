@@ -6,8 +6,9 @@ import frappe
 from frappe.model.naming import make_autoname
 from frappe import _, msgprint, throw
 import frappe.defaults
-from frappe.utils import flt, cint, cstr
+from frappe.utils import flt
 from frappe.desk.reportview import build_match_conditions
+from frappe.model.mapper import get_mapped_doc
 from erpnext.utilities.transaction_base import TransactionBase
 from erpnext.utilities.address_and_contact import load_address_and_contact
 from erpnext.accounts.party import validate_party_accounts
@@ -23,25 +24,20 @@ class Customer(TransactionBase):
 	def autoname(self):
 		cust_master_name = frappe.defaults.get_global_default('cust_master_name')
 		if cust_master_name == 'Customer Name':
-			self.name = self.get_customer_name()
+			self.name = self.customer_name
 		else:
 			if not self.naming_series:
 				frappe.throw(_("Series is mandatory"), frappe.MandatoryError)
 
 			self.name = make_autoname(self.naming_series+'.#####')
 
-	def get_customer_name(self):
-		if frappe.db.get_value("Customer", self.customer_name):
-			count = frappe.db.sql("""select ifnull(max(SUBSTRING_INDEX(name, ' ', -1)), 0) from tabCustomer
-				 where name like %s""", "%{0} - %".format(self.customer_name), as_list=1)[0][0]
-			count = cint(count) + 1
-			return "{0} - {1}".format(self.customer_name, cstr(count))
-
-		return self.customer_name
-
 	def validate(self):
 		self.flags.is_new_doc = self.is_new()
 		validate_party_accounts(self)
+		if not self.email_id:
+			frappe.msgprint("Email ID is mandatory",raise_exception=1)
+
+
 
 	def update_lead_status(self):
 		if self.lead_name:
@@ -137,7 +133,7 @@ def get_dashboard_info(customer):
 			{"customer": customer, "docstatus": ["!=", 2] }, "count(*)")
 
 	billing_this_year = frappe.db.sql("""
-		select sum(debit_in_account_currency) - sum(credit_in_account_currency)
+		select sum(ifnull(debit_in_account_currency, 0)) - sum(ifnull(credit_in_account_currency, 0))
 		from `tabGL Entry`
 		where voucher_type='Sales Invoice' and party_type = 'Customer'
 			and party=%s and fiscal_year = %s""",
@@ -189,17 +185,17 @@ def check_credit_limit(customer, company):
 
 def get_customer_outstanding(customer, company):
 	# Outstanding based on GL Entries
-	outstanding_based_on_gle = frappe.db.sql("""select sum(debit) - sum(credit)
+	outstanding_based_on_gle = frappe.db.sql("""select sum(ifnull(debit, 0)) - sum(ifnull(credit, 0))
 		from `tabGL Entry` where party_type = 'Customer' and party = %s and company=%s""", (customer, company))
 
 	outstanding_based_on_gle = flt(outstanding_based_on_gle[0][0]) if outstanding_based_on_gle else 0
 
 	# Outstanding based on Sales Order
 	outstanding_based_on_so = frappe.db.sql("""
-		select sum(base_grand_total*(100 - per_billed)/100)
+		select sum(base_grand_total*(100 - ifnull(per_billed, 0))/100)
 		from `tabSales Order`
 		where customer=%s and docstatus = 1 and company=%s
-		and per_billed < 100 and status != 'Stopped'""", (customer, company))
+		and ifnull(per_billed, 0) < 100 and status != 'Stopped'""", (customer, company))
 
 	outstanding_based_on_so = flt(outstanding_based_on_so[0][0]) if outstanding_based_on_so else 0.0
 
@@ -217,11 +213,11 @@ def get_customer_outstanding(customer, company):
 	outstanding_based_on_dn = 0.0
 
 	for dn_item in unmarked_delivery_note_items:
-		si_amount = frappe.db.sql("""select sum(amount)
+		si_amount = frappe.db.sql("""select sum(ifnull(amount, 0))
 			from `tabSales Invoice Item`
 			where dn_detail = %s and docstatus = 1""", dn_item.name)[0][0]
 
-		if flt(dn_item.amount) > flt(si_amount) and dn_item.base_net_total:
+		if flt(dn_item.amount) > flt(si_amount):
 			outstanding_based_on_dn += ((flt(dn_item.amount) - flt(si_amount)) \
 				/ dn_item.base_net_total) * dn_item.base_grand_total
 
@@ -229,15 +225,24 @@ def get_customer_outstanding(customer, company):
 
 
 def get_credit_limit(customer, company):
-	credit_limit = None
-
-	if customer:
-		credit_limit, customer_group = frappe.db.get_value("Customer", customer, ["credit_limit", "customer_group"])
-
-		if not credit_limit:
-			credit_limit = frappe.db.get_value("Customer Group", customer_group, "credit_limit")
-
+	credit_limit, customer_group = frappe.db.get_value("Customer", customer, ["credit_limit", "customer_group"])
 	if not credit_limit:
-		credit_limit = frappe.db.get_value("Company", company, "credit_limit")
+		credit_limit = frappe.db.get_value("Customer Group", customer_group, "credit_limit") or \
+			frappe.db.get_value("Company", company, "credit_limit")
 
-	return flt(credit_limit)
+	return credit_limit
+
+
+#Customization for creating enquiry from customer
+@frappe.whitelist()
+def create_customer_enquiry(source_name, target_doc=None):
+	def set_missing_values(source, target):
+		target.enquiry_from = "Customer"
+	target_doc = get_mapped_doc("Customer", source_name,
+		{"Customer": {
+			"doctype": "Enquiry",
+			"field_map": {
+				"customer": source_name
+			},
+		}}, target_doc,set_missing_values)
+	return target_doc

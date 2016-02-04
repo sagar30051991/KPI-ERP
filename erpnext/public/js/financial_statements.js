@@ -7,7 +7,7 @@ erpnext.financial_statements = {
 			"label": __("Company"),
 			"fieldtype": "Link",
 			"options": "Company",
-			"default": frappe.defaults.get_user_default("Company"),
+			"default": frappe.defaults.get_user_default("company"),
 			"reqd": 1
 		},
 		{
@@ -22,12 +22,7 @@ erpnext.financial_statements = {
 			"fieldname": "periodicity",
 			"label": __("Periodicity"),
 			"fieldtype": "Select",
-			"options": [
-				{ "value": "Monthly", "label": __("Monthly") },
-				{ "value": "Quarterly", "label": __("Quarterly") },
-				{ "value": "Half-Yearly", "label": __("Half-Yearly") },
-				{ "value": "Yearly", "label": __("Yearly") }
-			],
+			"options": "Yearly\nHalf-yearly\nQuarterly\nMonthly",
 			"default": "Yearly",
 			"reqd": 1
 		}
@@ -36,8 +31,7 @@ erpnext.financial_statements = {
 		if (columnDef.df.fieldname=="account") {
 			value = dataContext.account_name;
 
-			columnDef.df.link_onclick = 
-				"erpnext.financial_statements.open_general_ledger(" + JSON.stringify(dataContext) + ")";
+			columnDef.df.link_onclick = "erpnext.financial_statements.open_general_ledger(" + JSON.stringify(dataContext) + ")";
 			columnDef.df.is_tree = true;
 		}
 
@@ -60,8 +54,8 @@ erpnext.financial_statements = {
 		frappe.route_options = {
 			"account": data.account,
 			"company": frappe.query_report.filters_by_name.company.get_value(),
-			"from_date": data.year_start_date,
-			"to_date": data.year_end_date
+			"from_date": data.from_date,
+			"to_date": data.to_date
 		};
 		frappe.set_route("query-report", "General Ledger");
 	},

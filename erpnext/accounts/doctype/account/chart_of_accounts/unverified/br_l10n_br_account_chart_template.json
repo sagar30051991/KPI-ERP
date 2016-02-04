@@ -1,6 +1,7 @@
 {
     "country_code": "br",
     "name": "Planilha de Contas Brasileira",
+	"is_active": "No",
     "tree": {
         "ATIVO": {
             "CIRCULANTE": {

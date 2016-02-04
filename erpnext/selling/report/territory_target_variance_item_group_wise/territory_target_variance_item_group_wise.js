@@ -14,12 +14,7 @@ frappe.query_reports["Territory Target Variance Item Group-Wise"] = {
 			fieldname: "period",
 			label: __("Period"),
 			fieldtype: "Select",
-			options: [
-				{ "value": "Monthly", "label": __("Monthly") },
-				{ "value": "Quarterly", "label": __("Quarterly") },
-				{ "value": "Half-Yearly", "label": __("Half-Yearly") },
-				{ "value": "Yearly", "label": __("Yearly") }
-			],
+			options: "Monthly\nQuarterly\nHalf-Yearly\nYearly",
 			default: "Monthly"
 		},
 		{

@@ -1,6 +1,7 @@
 {
   "country_code": "gt",
   "name": "Cuentas de Guatemala",
+  "is_active": "Yes",
   "tree": {
     "Activos": {
       "Activo Corriente": {
@@ -10,10 +11,7 @@
           "IVA por Cobrar": {},
           "Retenciones de IVA recibidas": {}
         },
-        "Inventario": {
-          "is_group": 1,
-          "account_type": "Stock"
-        }
+        "Inventario": {}
       },
       "No Corriente": {
         "Activos Fijos": {},

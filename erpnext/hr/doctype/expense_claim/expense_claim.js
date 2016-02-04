@@ -18,25 +18,24 @@ erpnext.hr.ExpenseClaimController = frappe.ui.form.Controller.extend({
 				jv.voucher_type = 'Bank Entry';
 				jv.company = cur_frm.doc.company;
 				jv.remark = 'Payment against Expense Claim: ' + cur_frm.doc.name;
+				jv.fiscal_year = cur_frm.doc.fiscal_year;
 				var expense = cur_frm.doc.expenses || [];
 				for(var i = 0; i < expense.length; i++){
 					var d1 = frappe.model.add_child(jv, 'Journal Entry Account', 'accounts');
+					d1.debit = expense[i].sanctioned_amount;
 					d1.account = expense[i].default_account;
-					d1.debit_in_account_currency = expense[i].sanctioned_amount;
 					d1.reference_type = cur_frm.doc.doctype;
 					d1.reference_name = cur_frm.doc.name;
 				}
 
 				// credit to bank
 				var d1 = frappe.model.add_child(jv, 'Journal Entry Account', 'accounts');
-				d1.credit_in_account_currency = cur_frm.doc.total_sanctioned_amount;
+				d1.credit = cur_frm.doc.total_sanctioned_amount;
 				d1.reference_type = cur_frm.doc.doctype;
 				d1.reference_name = cur_frm.doc.name;
 				if(r.message) {
 					d1.account = r.message.account;
 					d1.balance = r.message.balance;
-					d1.account_currency = r.message.account_currency;
-					d1.account_type = r.message.account_type;
 				}
 
 				loaddoc('Journal Entry', jv.name);
@@ -97,9 +96,8 @@ cur_frm.cscript.refresh = function(doc,cdt,cdn){
 
 		if(doc.docstatus==1 && frappe.model.can_create("Journal Entry") &&
 			cint(doc.total_amount_reimbursed) < cint(doc.total_sanctioned_amount))
-			 cur_frm.add_custom_button(__("Bank Entry"),
-			 	cur_frm.cscript.make_bank_entry, __("Make"));
-			cur_frm.page.set_inner_btn_group_as_primary(__("Make"));
+			 cur_frm.add_custom_button(__("Make Bank Entry"),
+			 	cur_frm.cscript.make_bank_entry, frappe.boot.doctype_icons["Journal Entry"]);
 	}
 }
 

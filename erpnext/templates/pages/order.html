@@ -1,21 +1,11 @@
-{% extends "templates/web.html" %}
-
 {% block header %}
 <h1>{{ doc.name }}</h1>
 <!-- <h6 class="text-muted">{{ doc._title or doc.doctype }}</h6> -->
 {% endblock %}
 
-{% block breadcrumbs %}
-	{% include "templates/includes/breadcrumbs.html" %}
-{% endblock %}
+{% block style %}{% include "templates/includes/order/order.css" %}{% endblock %}
 
-{% block style %}
-<style>
-    {% include "templates/includes/order/order.css" %}
-</style>
-{% endblock %}
-
-{% block page_content %}
+{% block content %}
 
 {% from "erpnext/templates/includes/order/order_macros.html" import item_name_and_description %}
 
@@ -24,7 +14,7 @@
         <span class="indicator {{ doc.indicator_color or "darkgrey" }}">
             {{ doc.indicator_title or doc.status or "Submitted" }}
         </span>
-	</div>
+    </div>
     <div class="col-xs-6 text-muted text-right h6">
         {{ doc.get_formatted("transaction_date") }}
     </div>
@@ -56,13 +46,13 @@
             </div>
             <div class="col-sm-2 col-xs-3 text-right">
                 {{ d.qty }}
-                {% if d.delivered_qty is defined and d.delivered_qty != None %}
+                {% if d.delivered_qty != None %}
                 <p class="text-muted small">{{
                     _("Delivered: {0}").format(d.delivered_qty) }}</p>
                 {% endif %}
             </div>
             <div class="col-sm-2 col-xs-3 text-right">
-                {{ d.get_formatted("amount")	 }}
+                {{ d.get_formatted("amount") }}
                 <p class="text-muted small">{{
                     _("Rate: {0}").format(d.get_formatted("rate")) }}</p>
             </div>
@@ -77,21 +67,6 @@
             {% include "erpnext/templates/includes/order/order_taxes.html" %}
         </div>
     </div>
-</div>
-
-<div class="cart-taxes row small">
-    <div class="col-sm-8"><!-- empty --></div>
-    <div class="col-sm-4">
-        {% if (doc.doctype=="Sales Order" and doc.per_billed <= 0)
-			or (doc.doctype=="Sales Invoice" and doc.outstanding_amount > 0) %}
-		<div class="page-header-actions-block" data-html-block="header-actions">
-			<p>
-			    <a href="/api/method/erpnext.accounts.doctype.payment_request.payment_request.make_payment_request?dn={{ doc.name }}&dt={{ doc.doctype }}&submit_doc=1&mute_email=1&cart=1"
-			        class="btn btn-primary btn-sm">Pay {{ doc.get_formatted("grand_total") }} </a>
-			</p>
-			</div>
-		{% endif %}
-	</div>
 </div>
 
 {% endblock %}

@@ -85,7 +85,7 @@ def get_columns(filters):
 		]
 
 	columns += [
-		_("Voucher Type") + "::120", _("Voucher No") + ":Dynamic Link/"+_("Voucher Type")+":160",
+		_("Voucher Type") + "::120", _("Voucher No") + ":Dynamic Link/Voucher Type:160",
 		_("Against Account") + "::120", _("Party Type") + "::80", _("Party") + "::150",
 		_("Cost Center") + ":Link/Cost Center:100", _("Remarks") + "::400"
 	]
@@ -102,15 +102,15 @@ def get_result(filters, account_details):
 	return result
 
 def get_gl_entries(filters):
-	select_fields = """, sum(debit_in_account_currency) as debit_in_account_currency,
-		sum(credit_in_account_currency) as credit_in_account_currency""" \
+	select_fields = """, sum(ifnull(debit_in_account_currency, 0)) as debit_in_account_currency,
+		sum(ifnull(credit_in_account_currency, 0)) as credit_in_account_currency""" \
 		if filters.get("show_in_account_currency") else ""
 
 	group_by_condition = "group by voucher_type, voucher_no, account, cost_center" \
 		if filters.get("group_by_voucher") else "group by name"
 
 	gl_entries = frappe.db.sql("""select posting_date, account, party_type, party,
-			sum(debit) as debit, sum(credit) as credit,
+			sum(ifnull(debit, 0)) as debit, sum(ifnull(credit, 0)) as credit,
 			voucher_type, voucher_no, cost_center, remarks, against, is_opening {select_fields}
 		from `tabGL Entry`
 		where company=%(company)s {conditions}
@@ -178,8 +178,7 @@ def get_data_with_opening_closing(filters, account_details, gl_entries):
 
 	else:
 		for gl in gl_entries:
-			if gl.posting_date >= getdate(filters.from_date) and gl.posting_date <= getdate(filters.to_date) \
-					and gl.is_opening == "No":
+			if gl.posting_date >= getdate(filters.from_date) and gl.posting_date <= getdate(filters.to_date):
 				data.append(gl)
 
 

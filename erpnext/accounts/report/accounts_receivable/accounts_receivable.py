@@ -24,7 +24,7 @@ class ReceivablePayableReport(object):
 		if party_naming_by == "Naming Series":
 			columns += [args.get("party_type") + " Name::110"]
 
-		columns += [_("Voucher Type") + "::110", _("Voucher No") + ":Dynamic Link/"+_("Voucher Type")+":120",
+		columns += [_("Voucher Type") + "::110", _("Voucher No") + ":Dynamic Link/Voucher Type:120",
 			_("Due Date") + ":Date:80"]
 
 		if args.get("party_type") == "Supplier":
@@ -38,7 +38,7 @@ class ReceivablePayableReport(object):
 				"width": 120
 			})
 
-		columns += [_("Age (Days)") + ":Int:80"]
+		columns += [_("Age (Days)") + "::80"]
 
 		if not "range1" in self.filters:
 			self.filters["range1"] = "30"
@@ -68,7 +68,6 @@ class ReceivablePayableReport(object):
 				"label": _("Currency"),
 				"fieldtype": "Data",
 				"width": 100,
-				"hidden": 1
 			},
 			_("Remarks") + "::200"
 		]
@@ -217,7 +216,7 @@ class ReceivablePayableReport(object):
 			self.gl_entries = frappe.db.sql("""select name, posting_date, account, party_type, party,
 				voucher_type, voucher_no, against_voucher_type, against_voucher, account_currency, remarks, {0}
 				from `tabGL Entry`
-				where docstatus < 2 and party_type=%s and (party is not null and party != '') {1}
+				where docstatus < 2 and party_type=%s and ifnull(party, '') != '' {1}
 				order by posting_date, party"""
 				.format(select_fields, conditions), values, as_dict=True)
 

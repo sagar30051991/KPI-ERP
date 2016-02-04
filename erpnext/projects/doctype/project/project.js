@@ -30,24 +30,24 @@ cur_frm.cscript.refresh = function(doc) {
 			cur_frm.add_custom_button(__("Gantt Chart"), function() {
 				frappe.route_options = {"project": doc.name, "start": doc.expected_start_date, "end": doc.expected_end_date};
 				frappe.set_route("Gantt", "Task");
-			}, __("View"), true);
+			}, "icon-tasks", true);
 			cur_frm.add_custom_button(__("Tasks"), function() {
 				frappe.route_options = {"project": doc.name}
 				frappe.set_route("List", "Task");
-			}, __("View"), true);
+			}, "icon-list", true);
 		}
 		if(frappe.model.can_read("Time Log")) {
 			cur_frm.add_custom_button(__("Time Logs"), function() {
 				frappe.route_options = {"project": doc.name}
 				frappe.set_route("List", "Time Log");
-			}, __("View"), true);
+			}, "icon-list", true);
 		}
 
 		if(frappe.model.can_read("Expense Claim")) {
 			cur_frm.add_custom_button(__("Expense Claims"), function() {
 				frappe.route_options = {"project": doc.name}
 				frappe.set_route("List", "Expense Claim");
-			}, __("View"), true);
+			}, "icon-list", true);
 		}
 	}
 }

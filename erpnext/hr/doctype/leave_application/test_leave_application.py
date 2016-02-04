@@ -44,11 +44,7 @@ _test_records = [
 ]
 
 
-class TestLeaveApplication(unittest.TestCase):	
-	def setUp(self):
-		for dt in ["Leave Application", "Leave Allocation", "Salary Slip"]:
-			frappe.db.sql("delete from `tab%s`" % dt)
-	
+class TestLeaveApplication(unittest.TestCase):
 	def tearDown(self):
 		frappe.set_user("Administrator")
 
@@ -101,8 +97,6 @@ class TestLeaveApplication(unittest.TestCase):
 
 		frappe.db.set_value("Department", "_Test Department",
 			"leave_block_list", "_Test Leave Block List")
-			
-		make_allocation_record()
 
 		application = self.get_application(_test_records[0])
 		application.insert()
@@ -126,9 +120,6 @@ class TestLeaveApplication(unittest.TestCase):
 		add_role("test2@example.com", "Leave Approver")
 
 		frappe.set_user("test@example.com")
-
-		make_allocation_record()
-		
 		application = self.get_application(_test_records[0])
 		application.leave_approver = "test2@example.com"
 		application.insert()
@@ -144,9 +135,7 @@ class TestLeaveApplication(unittest.TestCase):
 		add_role("test1@example.com", "Employee")
 		add_role("test@example.com", "Leave Approver")
 		self._add_employee_leave_approver("_T-Employee-0002", "test@example.com")
-		
-		make_allocation_record(employee="_T-Employee-0002")
-		
+
 		application = self.get_application(_test_records[1])
 		application.leave_approver = "test@example.com"
 
@@ -186,9 +175,6 @@ class TestLeaveApplication(unittest.TestCase):
 
 		# create leave application as Employee
 		frappe.set_user("test@example.com")
-		
-		make_allocation_record()
-		
 		application = self.get_application(_test_records[0])
 		application.leave_approver = "test1@example.com"
 		application.insert()
@@ -210,8 +196,6 @@ class TestLeaveApplication(unittest.TestCase):
 		self._add_employee_leave_approver("_T-Employee-0001", "test2@example.com")
 		self._remove_employee_leave_approver("_T-Employee-0001", "test1@example.com")
 
-		make_allocation_record()
-
 		application = self.get_application(_test_records[0])
 		frappe.set_user("test@example.com")
 
@@ -228,9 +212,6 @@ class TestLeaveApplication(unittest.TestCase):
 		# create leave application as employee
 		# but submit as invalid leave approver - should raise exception
 		frappe.set_user("test@example.com")
-		
-		make_allocation_record()
-		
 		application = self.get_application(_test_records[0])
 		application.leave_approver = "test2@example.com"
 		application.insert()
@@ -251,9 +232,6 @@ class TestLeaveApplication(unittest.TestCase):
 		frappe.db.set_value("Employee", "_T-Employee-0001", "department", None)
 
 		frappe.set_user("test@example.com")
-		
-		make_allocation_record()
-		
 		application = self.get_application(_test_records[0])
 		application.leave_approver = "test2@example.com"
 		application.insert()
@@ -269,18 +247,3 @@ class TestLeaveApplication(unittest.TestCase):
 			"_T-Employee-0001")
 
 		frappe.db.set_value("Employee", "_T-Employee-0001", "department", original_department)
-		
-def make_allocation_record(employee=None, leave_type=None):
-	frappe.db.sql("delete from `tabLeave Allocation`")
-	
-	allocation = frappe.get_doc({
-		"doctype": "Leave Allocation",
-		"employee": employee or "_T-Employee-0001",
-		"leave_type": leave_type or "_Test Leave Type",
-		"from_date": "2013-01-01",
-		"to_date": "2015-12-31",
-		"new_leaves_allocated": 30
-	})
-	
-	allocation.insert(ignore_permissions=True)
-	allocation.submit()

@@ -1,6 +1,7 @@
 {
     "country_code": "th",
     "name": "Thailand Chart of Accounts",
+	"is_active": "Yes",
     "tree": {
         "Assets": {
             "Account Receivable": {},

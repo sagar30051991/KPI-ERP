@@ -12,7 +12,7 @@ class InvalidItemAttributeValueError(frappe.ValidationError): pass
 class ItemTemplateCannotHaveStock(frappe.ValidationError): pass
 
 @frappe.whitelist()
-def get_variant(template, args, variant=None):
+def get_variant(item, args):
 	"""Validates Attributes and their Values, then looks for an exactly matching Item Variant
 
 		:param item: Template Item
@@ -24,24 +24,23 @@ def get_variant(template, args, variant=None):
 	if not args:
 		frappe.throw(_("Please specify at least one attribute in the Attributes table"))
 
-	validate_item_variant_attributes(template, args)
+	validate_item_variant_attributes(item, args)
 
-	return find_variant(template, args, variant)
+	return find_variant(item, args)
 
 def validate_item_variant_attributes(item, args):
 	attribute_values = {}
 	for t in frappe.get_all("Item Attribute Value", fields=["parent", "attribute_value"],
 		filters={"parent": ["in", args.keys()]}):
-		
-		(attribute_values.setdefault(t.parent.lower(), [])).append(t.attribute_value)
+		(attribute_values.setdefault(t.parent, [])).append(t.attribute_value)
 
-	numeric_attributes = frappe._dict((t.attribute.lower(), t) for t in \
+	numeric_attributes = frappe._dict((t.attribute, t) for t in \
 		frappe.db.sql("""select attribute, from_range, to_range, increment from `tabItem Variant Attribute`
 		where parent = %s and numeric_values=1""", (item), as_dict=1))
-		
+
 	for attribute, value in args.items():
-		if attribute.lower() in numeric_attributes:
-			numeric_attribute = numeric_attributes[attribute.lower()]
+		if attribute in numeric_attributes:
+			numeric_attribute = numeric_attributes[attribute]
 
 			from_range = numeric_attribute.from_range
 			to_range = numeric_attribute.to_range
@@ -52,7 +51,7 @@ def validate_item_variant_attributes(item, args):
 				frappe.throw(_("Increment for Attribute {0} cannot be 0").format(attribute))
 
 			is_in_range = from_range <= flt(value) <= to_range
-			precision = max(len(cstr(v).split(".")[-1].rstrip("0")) for v in (value, increment))
+			precision = len(cstr(increment).split(".")[-1].rstrip("0"))
 			#avoid precision error by rounding the remainder
 			remainder = flt((flt(value) - from_range) % increment, precision)
 
@@ -61,12 +60,12 @@ def validate_item_variant_attributes(item, args):
 			if not (is_in_range and is_incremental):
 				frappe.throw(_("Value for Attribute {0} must be within the range of {1} to {2} in the increments of {3}")\
 					.format(attribute, from_range, to_range, increment), InvalidItemAttributeValueError)
-		
-		elif value not in attribute_values.get(attribute.lower(), []):
+				
+		elif value not in attribute_values.get(attribute, []):
 			frappe.throw(_("Value {0} for Attribute {1} does not exist in the list of valid Item Attribute Values").format(
 				value, attribute))
 
-def find_variant(template, args, variant_item_code=None):
+def find_variant(item, args):
 	conditions = ["""(iv_attribute.attribute="{0}" and iv_attribute.attribute_value="{1}")"""\
 		.format(frappe.db.escape(key), frappe.db.escape(cstr(value))) for key, value in args.items()]
 
@@ -80,8 +79,8 @@ def find_variant(template, args, variant_item_code=None):
 		where variant_of=%s and exists (
 			select name from `tabItem Variant Attribute` iv_attribute
 				where iv_attribute.parent=item.name
-				and ({conditions}) and parent != %s
-		)""".format(conditions=conditions), (template, cstr(variant_item_code)))
+				and ({conditions})
+		)""".format(conditions=conditions), item)
 
 	for variant in possible_variants:
 		variant = frappe.get_doc("Item", variant)
@@ -126,11 +125,12 @@ def copy_attributes_to_variant(item, variant):
 	from frappe.model import no_value_fields
 	for field in item.meta.fields:
 		if field.fieldtype not in no_value_fields and (not field.no_copy)\
-			and field.fieldname not in ("item_code", "item_name", "show_in_website"):
+			and field.fieldname not in ("item_code", "item_name"):
 			if variant.get(field.fieldname) != item.get(field.fieldname):
 				variant.set(field.fieldname, item.get(field.fieldname))
 	variant.variant_of = item.name
 	variant.has_variants = 0
+	variant.show_in_website = 0
 	if variant.attributes:
 		variant.description += "\n"
 		for d in variant.attributes:

@@ -5,13 +5,12 @@ from __future__ import unicode_literals
 import frappe
 import frappe.defaults
 from frappe import _
-from frappe.utils import cstr, cint, flt, comma_or, getdate, nowdate
+from frappe.utils import cstr, cint, flt, comma_or, getdate
 from erpnext.stock.utils import get_incoming_rate
 from erpnext.stock.stock_ledger import get_previous_sle, NegativeStockError
 from erpnext.stock.get_item_details import get_available_qty, get_default_cost_center, get_conversion_factor
 from erpnext.manufacturing.doctype.bom.bom import validate_bom_no
 from erpnext.accounts.utils import validate_fiscal_year
-import json
 
 class IncorrectValuationRateError(frappe.ValidationError): pass
 class DuplicateEntryForProductionOrderError(frappe.ValidationError): pass
@@ -103,7 +102,7 @@ class StockEntry(StockController):
 			if self.difference_account and not item.expense_account:
 				item.expense_account = self.difference_account
 
-			if not item.transfer_qty and item.qty:
+			if not item.transfer_qty:
 				item.transfer_qty = item.qty * item.conversion_factor
 
 			if (self.purpose in ("Material Transfer", "Material Transfer for Manufacture")
@@ -171,8 +170,10 @@ class StockEntry(StockController):
 	def validate_production_order(self):
 		if self.purpose in ("Manufacture", "Material Transfer for Manufacture"):
 			# check if production order is entered
-
-			if self.purpose=="Manufacture" and self.production_order:
+			if not self.production_order:
+				frappe.throw(_("Production order number is mandatory for stock entry purpose manufacture"))
+			# check for double entry
+			if self.purpose=="Manufacture":
 				if not self.fg_completed_qty:
 					frappe.throw(_("For Quantity (Manufactured Qty) is mandatory"))
 				self.check_if_operations_completed()
@@ -233,7 +234,6 @@ class StockEntry(StockController):
 					self.posting_date, self.posting_time, d.actual_qty, d.transfer_qty), NegativeStockError)
 
 	def get_stock_and_rate(self):
-		self.set_transfer_qty()
 		self.set_actual_qty()
 		self.calculate_rate_and_amount()
 
@@ -295,9 +295,7 @@ class StockEntry(StockController):
 	def update_valuation_rate(self):
 		for d in self.get("items"):
 			d.amount = flt(d.basic_amount + flt(d.additional_cost), d.precision("amount"))
-			d.valuation_rate = flt(
-				flt(d.basic_rate)
-				+ (flt(d.additional_cost) / flt(d.transfer_qty)),
+			d.valuation_rate = flt(flt(d.basic_rate) + flt(d.additional_cost) / flt(d.transfer_qty),
 				d.precision("valuation_rate"))
 
 	def set_total_incoming_outgoing_value(self):
@@ -361,17 +359,14 @@ class StockEntry(StockController):
 
 	def update_stock_ledger(self):
 		sl_entries = []
-
-		# make sl entries for source warehouse first, then do for target warehouse
 		for d in self.get('items'):
-			if cstr(d.s_warehouse):
+			if cstr(d.s_warehouse) and self.docstatus == 1:
 				sl_entries.append(self.get_sl_entries(d, {
 					"warehouse": cstr(d.s_warehouse),
 					"actual_qty": -flt(d.transfer_qty),
 					"incoming_rate": 0
 				}))
 
-		for d in self.get('items'):
 			if cstr(d.t_warehouse):
 				sl_entries.append(self.get_sl_entries(d, {
 					"warehouse": cstr(d.t_warehouse),
@@ -379,18 +374,15 @@ class StockEntry(StockController):
 					"incoming_rate": flt(d.valuation_rate)
 				}))
 
-		# On cancellation, make stock ledger entry for
-		# target warehouse first, to update serial no values properly
+			# On cancellation, make stock ledger entry for
+			# target warehouse first, to update serial no values properly
 
-			# if cstr(d.s_warehouse) and self.docstatus == 2:
-			# 	sl_entries.append(self.get_sl_entries(d, {
-			# 		"warehouse": cstr(d.s_warehouse),
-			# 		"actual_qty": -flt(d.transfer_qty),
-			# 		"incoming_rate": 0
-			# 	}))
-
-		if self.docstatus == 2:
-			sl_entries.reverse()
+			if cstr(d.s_warehouse) and self.docstatus == 2:
+				sl_entries.append(self.get_sl_entries(d, {
+					"warehouse": cstr(d.s_warehouse),
+					"actual_qty": -flt(d.transfer_qty),
+					"incoming_rate": 0
+				}))
 
 		self.make_sl_entries(sl_entries, self.amended_from and 'Yes' or 'No')
 
@@ -440,10 +432,8 @@ class StockEntry(StockController):
 	def get_item_details(self, args=None, for_update=False):
 		item = frappe.db.sql("""select stock_uom, description, image, item_name,
 			expense_account, buying_cost_center, item_group from `tabItem`
-			where name = %s
-				and disabled=0
-				and (end_of_life is null or end_of_life='0000-00-00' or end_of_life > %s)""",
-			(args.get('item_code'), nowdate()), as_dict = 1)
+			where name = %s and (ifnull(end_of_life,'0000-00-00')='0000-00-00' or end_of_life > now())""",
+			(args.get('item_code')), as_dict = 1)
 		if not item:
 			frappe.throw(_("Item {0} is not active or end of life has been reached").format(args.get("item_code")))
 
@@ -477,10 +467,7 @@ class StockEntry(StockController):
 		if not ret["expense_account"]:
 			ret["expense_account"] = frappe.db.get_value("Company", self.company, "stock_adjustment_account")
 
-		args['posting_date'] = self.posting_date
-		args['posting_time'] = self.posting_time
-
-		stock_and_rate = args.get('warehouse') and get_warehouse_details(args) or {}
+		stock_and_rate = args.get('warehouse') and self.get_warehouse_details(args) or {}
 		ret.update(stock_and_rate)
 
 		return ret
@@ -499,6 +486,21 @@ class StockEntry(StockController):
 			ret = {
 				'conversion_factor'		: flt(conversion_factor),
 				'transfer_qty'			: flt(args.get("qty")) * flt(conversion_factor)
+			}
+		return ret
+
+	def get_warehouse_details(self, args):
+		ret = {}
+		if args.get('warehouse') and args.get('item_code'):
+			args.update({
+				"posting_date": self.posting_date,
+				"posting_time": self.posting_time,
+			})
+			args = frappe._dict(args)
+
+			ret = {
+				"actual_qty" : get_previous_sle(args).get("qty_after_transaction") or 0,
+				"basic_rate" : get_incoming_rate(args)
 			}
 		return ret
 
@@ -798,23 +800,3 @@ def get_operating_cost_per_unit(production_order=None, bom_no=None):
 		operating_cost_per_unit = flt(bom.operating_cost) / flt(bom.quantity)
 
 	return operating_cost_per_unit
-
-@frappe.whitelist()
-def get_warehouse_details(args):
-	if isinstance(args, basestring):
-		args = json.loads(args)
-
-	args = frappe._dict(args)
-
-	ret = {}
-	if args.warehouse and args.item_code:
-		args.update({
-			"posting_date": args.posting_date,
-			"posting_time": args.posting_time,
-		})
-		ret = {
-			"actual_qty" : get_previous_sle(args).get("qty_after_transaction") or 0,
-			"basic_rate" : get_incoming_rate(args)
-		}
-
-	return ret

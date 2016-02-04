@@ -88,26 +88,25 @@ class TestItem(unittest.TestCase):
 			"company": "_Test Company",
 			"price_list": "_Test Price List",
 			"currency": "_Test Currency",
-			"doctype": "Sales Order",
+			"parenttype": "Sales Order",
 			"conversion_rate": 1,
 			"price_list_currency": "_Test Currency",
 			"plc_conversion_rate": 1,
 			"order_type": "Sales",
-			"customer": "_Test Customer"
+			"transaction_type": "selling"
 		})
 
 		for key, value in to_check.iteritems():
 			self.assertEquals(value, details.get(key))
 
 	def test_make_item_variant(self):
-		frappe.delete_doc_if_exists("Item", "_Test Variant Item-L", force=1)
+		frappe.delete_doc_if_exists("Item", "_Test Variant Item-L")
 
 		variant = create_variant("_Test Variant Item", {"Test Size": "Large"})
 		variant.save()
 
 		# doing it again should raise error
 		variant = create_variant("_Test Variant Item", {"Test Size": "Large"})
-		variant.item_code = "_Test Variant Item-L-duplicate"
 		self.assertRaises(ItemVariantExistsError, variant.save)
 
 	def test_make_item_variant_with_numeric_values(self):

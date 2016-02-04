@@ -33,7 +33,7 @@ cur_frm.cscript.onload = function(doc, cdt, cdn) {
 							cur_frm.set_value("address_title", cur_frm.doc.customer_name);
 				}
 			}
-			else if(["Supplier", "Supplier Quotation", "Purchase Order", "Purchase Invoice", "Purchase Receipt"]
+			if(["Supplier", "Supplier Quotation", "Purchase Order", "Purchase Invoice", "Purchase Receipt"]
 				.indexOf(doctype)!==-1) {
 				var refdoc = frappe.get_doc(doctype, docname);
 				cur_frm.set_value("supplier", refdoc.supplier || refdoc.name);
@@ -41,20 +41,17 @@ cur_frm.cscript.onload = function(doc, cdt, cdn) {
 				if(cur_frm.doc.doctype==="Address")
 					cur_frm.set_value("address_title", cur_frm.doc.supplier_name);
 			}
-			else if(["Lead", "Opportunity", "Quotation"]
+			if(["Lead", "Opportunity", "Quotation" , "Enquiry"]
 				.indexOf(doctype)!==-1) {
 				var refdoc = frappe.get_doc(doctype, docname);
-
 				if((refdoc.doctype == "Quotation" && refdoc.quotation_to=="Lead") ||
-					(refdoc.doctype == "Opportunity" && refdoc.enquiry_from=="Lead") || (doctype=="Lead")) {
+					(refdoc.doctype == "Opportunity" && refdoc.enquiry_from=="Lead") || (doctype=="Lead") ||
+						(refdoc.doctype == "Enquiry" && refdoc.enquiry_from=="Lead")) {
 						cur_frm.set_value("lead", refdoc.lead || refdoc.name);
 						cur_frm.set_value("lead_name", refdoc.customer_name || refdoc.company_name || refdoc.lead_name);
 						if(cur_frm.doc.doctype==="Address")
 							cur_frm.set_value("address_title", cur_frm.doc.lead_name);
 				}
-			}
-			else if(doctype == "Sales Partner") {
-				cur_frm.set_value("sales_partner", docname);
 			}
 		}
 	}

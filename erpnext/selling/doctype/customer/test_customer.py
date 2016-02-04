@@ -7,7 +7,7 @@ import frappe
 import unittest
 
 from frappe.test_runner import make_test_records
-from erpnext.exceptions import PartyFrozen, PartyDisabled
+from erpnext.exceptions import CustomerFrozen
 
 test_ignore = ["Price List"]
 
@@ -68,57 +68,13 @@ class TestCustomer(unittest.TestCase):
 		frappe.rename_doc("Customer", "_Test Customer 1 Renamed", "_Test Customer 1")
 
 	def test_freezed_customer(self):
-		make_test_records("Item")
-
 		frappe.db.set_value("Customer", "_Test Customer", "is_frozen", 1)
 
 		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
 
 		so = make_sales_order(do_not_save= True)
-
-		self.assertRaises(PartyFrozen, so.save)
+		self.assertRaises(CustomerFrozen, so.save)
 
 		frappe.db.set_value("Customer", "_Test Customer", "is_frozen", 0)
 
 		so.save()
-
-	def test_disabled_customer(self):
-		make_test_records("Item")
-
-		frappe.db.set_value("Customer", "_Test Customer", "disabled", 1)
-
-		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
-
-		so = make_sales_order(do_not_save=True)
-
-		self.assertRaises(PartyDisabled, so.save)
-
-		frappe.db.set_value("Customer", "_Test Customer", "disabled", 0)
-
-		so.save()
-
-	def test_duplicate_customer(self):
-		frappe.db.sql("delete from `tabCustomer` where customer_name='_Test Customer 1'")
-
-		if not frappe.db.get_value("Customer", "_Test Customer 1"):
-			test_customer_1 = frappe.get_doc({
-				 "customer_group": "_Test Customer Group",
-				 "customer_name": "_Test Customer 1",
-				 "customer_type": "Individual",
-				 "doctype": "Customer",
-				 "territory": "_Test Territory"
-			}).insert(ignore_permissions=True)
-		else:
-			test_customer_1 = frappe.get_doc("Customer", "_Test Customer 1")
-
-		duplicate_customer = frappe.get_doc({
-			 "customer_group": "_Test Customer Group",
-			 "customer_name": "_Test Customer 1",
-			 "customer_type": "Individual",
-			 "doctype": "Customer",
-			 "territory": "_Test Territory"
-		}).insert(ignore_permissions=True)
-
-		self.assertEquals("_Test Customer 1", test_customer_1.name)
-		self.assertEquals("_Test Customer 1 - 1", duplicate_customer.name)
-		self.assertEquals(test_customer_1.customer_name, duplicate_customer.customer_name)

@@ -96,9 +96,6 @@ def validate_returned_items(doc):
 							if s not in ref_serial_nos:
 								frappe.throw(_("Row # {0}: Serial No {1} does not match with {2} {3}")
 									.format(d.idx, s, doc.doctype, doc.return_against))
-									
-				if doc.doctype != "Purchase Invoice" and not d.get("warehouse"):
-					frappe.throw(_("Warehouse is mandatory"))
 
 			items_returned = True
 
@@ -113,7 +110,7 @@ def get_already_returned_items(doc):
 			`tab{0} Item` child, `tab{1}` par
 		where
 			child.parent = par.name and par.docstatus = 1
-			and par.is_return = 1 and par.return_against = %s and child.qty < 0
+			and ifnull(par.is_return, 0) = 1 and par.return_against = %s and child.qty < 0
 		group by item_code
 	""".format(doc.doctype, doc.doctype), doc.return_against))
 

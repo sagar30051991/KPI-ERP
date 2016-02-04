@@ -4,26 +4,18 @@
 frappe.query_reports["Employee Leave Balance"] = {
 	"filters": [
 		{
-			"fieldname":"from_date",
-			"label": __("From Date"),
-			"fieldtype": "Date",
-			"reqd": 1,
-			"default": frappe.datetime.year_start()
-		},
-		{
-			"fieldname":"to_date",
-			"label": __("To Date"),
-			"fieldtype": "Date",
-			"reqd": 1,
-			"default": frappe.datetime.year_end()
+			"fieldname":"fiscal_year",
+			"label": __("Fiscal Year"),
+			"fieldtype": "Link",
+			"options": "Fiscal Year",
+			"default": frappe.defaults.get_user_default("fiscal_year")
 		},
 		{
 			"fieldname":"company",
 			"label": __("Company"),
 			"fieldtype": "Link",
 			"options": "Company",
-			"reqd": 1,
-			"default": frappe.defaults.get_user_default("Company")
+			"default": frappe.defaults.get_user_default("company")
 		}
 	]
 }

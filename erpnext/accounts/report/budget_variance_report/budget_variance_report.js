@@ -14,12 +14,7 @@ frappe.query_reports["Budget Variance Report"] = {
 			fieldname: "period",
 			label: __("Period"),
 			fieldtype: "Select",
-			options: [
-				{ "value": "Monthly", "label": __("Monthly") },
-				{ "value": "Quarterly", "label": __("Quarterly") },
-				{ "value": "Half-Yearly", "label": __("Half-Yearly") },
-				{ "value": "Yearly", "label": __("Yearly") }
-			],
+			options: "Monthly\nQuarterly\nHalf-Yearly\nYearly",
 			default: "Monthly"
 		},
 		{
@@ -27,7 +22,7 @@ frappe.query_reports["Budget Variance Report"] = {
 			label: __("Company"),
 			fieldtype: "Link",
 			options: "Company",
-			default: frappe.defaults.get_user_default("Company")
+			default: frappe.defaults.get_user_default("company")
 		},
 	]
 }

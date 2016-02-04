@@ -1,6 +1,7 @@
 {
 	"country_code": "ni",
 	"name": "Catalogo de Cuentas Nicaragua",
+	"is_active": "Yes",
 	"tree": {
 		"Activo": {
 			"Activo Corriente": {

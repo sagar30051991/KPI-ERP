@@ -4,6 +4,8 @@
 frappe.provide("erpnext");
 cur_frm.email_field = "email_id";
 
+cur_frm.add_fetch('location', 'area', 'location_name');
+
 erpnext.LeadController = frappe.ui.form.Controller.extend({
 	setup: function() {
 		this.frm.fields_dict.customer.get_query = function(doc, cdt, cdn) {
@@ -27,16 +29,21 @@ erpnext.LeadController = frappe.ui.form.Controller.extend({
 		erpnext.toggle_naming_series();
 
 		if(!this.frm.doc.__islocal && this.frm.doc.__onload && !this.frm.doc.__onload.is_customer) {
-			this.frm.add_custom_button(__("Customer"), this.create_customer, __("Make"));
-			this.frm.add_custom_button(__("Opportunity"), this.create_opportunity, __("Make"));
-			this.frm.add_custom_button(__("Quotation"), this.make_quotation, __("Make"));
-			cur_frm.page.set_inner_btn_group_as_primary(__("Make"));
+			this.frm.add_custom_button(__("Create Customer"), this.create_customer,
+				frappe.boot.doctype_icons["Customer"], "btn-default");
+			// this.frm.add_custom_button(__("Create Opportunity"), this.create_opportunity,
+			// 	frappe.boot.doctype_icons["Opportunity"], "btn-default");
+			// this.frm.add_custom_button(__("Make Quotation"), this.make_quotation,
+			// 	frappe.boot.doctype_icons["Quotation"], "btn-default");
 		}
+
+		// if(!this.frm.doc.__islocal){
+		// 	this.frm.add_custom_button(__("Create Enquiry"), this.create_enquiry,
+		// 		frappe.boot.doctype_icons["Enquiry"], "btn-default");
+		// }
 
 		if(!this.frm.doc.__islocal) {
 			erpnext.utils.render_address_and_contact(cur_frm);
-		} else {
-			erpnext.utils.clear_address_and_contact(cur_frm);
 		}
 	},
 
@@ -53,10 +60,17 @@ erpnext.LeadController = frappe.ui.form.Controller.extend({
 			frm: cur_frm
 		})
 	},
-
+	
 	make_quotation: function() {
 		frappe.model.open_mapped_doc({
 			method: "erpnext.crm.doctype.lead.lead.make_quotation",
+			frm: cur_frm
+		})
+	},
+
+	create_enquiry: function() {
+		frappe.model.open_mapped_doc({
+			method: "erpnext.crm.doctype.lead.lead.create_enquiry",
 			frm: cur_frm
 		})
 	}
@@ -66,3 +80,11 @@ $.extend(cur_frm.cscript, new erpnext.LeadController({frm: cur_frm}));
 
 
 
+cur_frm.fields_dict['enquiry_sub_source'].get_query = function(doc) {
+	return {
+		filters: {
+			
+			"enquiry_source": doc.source
+		}
+	}
+}
